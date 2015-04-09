@@ -1,30 +1,28 @@
-
 --[[---------------------------------------------------------
-  Name: scripted_ents
-  Desc: Scripted Entity factory
+   Name: scripted_ents
+   Desc: Scripted Entity factory
 -----------------------------------------------------------]]
-
 module( "scripted_ents", package.seeall )
 
 local Aliases = {}
 local SEntList = {}
 
 local BaseClasses = {}
-BaseClasses[ "anim" ] = "base_anim"
-BaseClasses[ "point" ] = "base_point"
-BaseClasses[ "brush" ] = "base_brush"
+	BaseClasses['anim'] 	= 'base_anim'
+	BaseClasses['point'] 	= 'base_point'
+	BaseClasses['brush'] 	= 'base_brush'
 
 --[[---------------------------------------------------------
-	Name: TableInherit( t, base )
-	Desc: Copies any missing data from base to t
+   Name: TableInherit( t, base )
+   Desc: Copies any missing data from base to t
 -----------------------------------------------------------]]
 local function TableInherit( t, base )
 
 	for k, v in pairs( base ) do 
 		
-		if ( t[k] == nil ) then
-			t[k] = v
-		elseif ( istable( t[k] ) ) then
+		if ( t[k] == nil ) then	
+			t[k] = v 
+		elseif ( istable(t[k]) ) then
 			TableInherit( t[k], v )
 		end
 		
@@ -37,27 +35,41 @@ local function TableInherit( t, base )
 end
 
 --[[---------------------------------------------------------
-	Name: Register( table, string, bool )
+   Name: IsBasedOn( name, base )
+   Desc: Checks if name is based on base
+-----------------------------------------------------------]]
+function IsBasedOn( name, base )
+	local t = GetStored( name )
+	if not t then return false end
+	if t.Base == name then return false end
+
+	if t.Base == base then return true end
+	return IsBasedOn( t.Base, base )
+end
+
+--[[---------------------------------------------------------
+   Name: Register( table, string, bool )
 -----------------------------------------------------------]]
 function Register( t, name )
 
-	local Base = t.Base
+	local Base = t.Base	
 	if ( !Base ) then Base = BaseClasses[ t.Type ] end
 	
 	local old = SEntList[ name ]
 	local tab = {}
 	
-	tab.type		= t.Type
-	tab.t			= t
-	tab.isBaseType	= true
-	tab.Base		= Base
-	tab.t.ClassName	= name
+	tab.type 		= t.Type
+	tab.t 			= t
+	tab.isBaseType 	= true
+	tab.Base 		= Base
+	tab.t.ClassName = name
 	
 	if ( !Base ) then
 		Msg( "WARNING: Scripted entity "..name.." has an invalid base entity!\n" )
 	end
 
 	SEntList[ name ] = tab
+
 
 	-- Allow all SENTS to be duplicated, unless specified
 	if ( !t.DisableDuplicator ) then
@@ -89,24 +101,37 @@ function Register( t, name )
 		
 		end )
 
+		-- Update BaseClass of ents that are based on this entity
+		for nm, t in pairs( SEntList ) do
+			if IsBasedOn( nm, name ) then
+				baseclass.Set( nm, Get( nm ) )
+			end
+		end
+
+		-- Update entity table of entities that are based on this entity
+		for _, e in pairs( ents.GetAll() ) do
+			if IsBasedOn( e:GetClass(), name ) then
+				table.Merge( e, Get( e:GetClass() ) )
+			end
+		end
 	end
 
 	if ( !t.Spawnable ) then return end
 
-	list.Set( "SpawnableEntities", name, {
-		-- Required information
-		PrintName		= t.PrintName, 
-		ClassName		= name,
-		Category		= t.Category,
+	list.Set( "SpawnableEntities", name, { 	
+											-- Required information
+											PrintName		= t.PrintName, 
+											ClassName		= name,
+											Category		= t.Category,
 
-		-- Optional information
-		NormalOffset	= t.NormalOffset,
-		DropToFloor		= t.DropToFloor,
-		Author			= t.Author,
-		AdminOnly		= t.AdminOnly,
-		Information		= t.Information
-	} )
-
+											-- Optional information
+											NormalOffset	= t.NormalOffset,
+											DropToFloor		= t.DropToFloor,
+											Author			= t.Author,
+											AdminOnly		= t.AdminOnly,
+											Information		= t.Information
+										} )
+	
 end
 
 --
@@ -129,7 +154,7 @@ end
 
 
 --[[---------------------------------------------------------
-	Name: Get( string )
+   Name: Get( string )
 -----------------------------------------------------------]]
 function Get( name )
 	
@@ -140,24 +165,23 @@ function Get( name )
 
 	if ( SEntList[ name ] == nil ) then return nil end
 
+
 	-- Create/copy a new table
 	local retval = {}
-	for k, v in pairs( SEntList[ name ].t ) do
+	for k, v in pairs( SEntList[ name ].t ) do 
 		retval[k] = v
 	end
 	
 	-- Derive from base class
 	if ( name != SEntList[ name ].Base ) then
+	
+		if (!Get( SEntList[ name ].Base )) then
 		
-		local base = Get( SEntList[ name ].Base )
-		
-		if ( !base ) then
-		
-			Msg("ERROR: Trying to derive entity " .. tostring( name ) .. " from non existant entity " .. tostring( SEntList[ name ].Base ) .. "!\n" )
+			Msg("ERROR: Trying to derive entity "..tostring(name).." from non existant entity "..tostring(SEntList[ name ].Base).."!\n" )
 		
 		else
 	
-			retval = TableInherit( retval, base )
+			retval = TableInherit( retval, Get( SEntList[ name ].Base ) )
 		
 		end
 		
@@ -167,8 +191,9 @@ function Get( name )
 
 end
 
+
 --[[---------------------------------------------------------
-	Name: GetType( string )
+   Name: GetType( string )
 -----------------------------------------------------------]]
 function GetType( name )
 
@@ -188,25 +213,26 @@ function GetType( name )
 	end
 	
 	return nil
-
+	
+	
 end
 
 --[[---------------------------------------------------------
-	Name: GetStored( string )
-	Desc: Gets the REAL sent table, not a copy
+   Name: GetStored( string )
+   Desc: Gets the REAL sent table, not a copy
 -----------------------------------------------------------]]
 function GetStored( name )
 	return SEntList[ name ]
 end
 
 --[[---------------------------------------------------------
-  Name: GetList( string )
-  Desc: Get a list of all the registered SENTs
+   Name: GetList( string )
+   Desc: Get a list of all the registered SENTs
 -----------------------------------------------------------]]
 function GetList()
 	local result = {}
 	
-	for k,v in pairs( SEntList ) do
+	for k,v in pairs(SEntList) do
 		result[ k ] = v
 	end
 	
@@ -214,7 +240,7 @@ function GetList()
 end
 
 --[[---------------------------------------------------------
-	Name: GetSpawnable
+   Name: GetSpawnable
 -----------------------------------------------------------]]
 function GetSpawnable()
 
@@ -231,26 +257,28 @@ function GetSpawnable()
 	end
 	
 	return result
-
+	
 end
 
+
 --[[---------------------------------------------------------
-	Name: Alias
+   Name: Alias
 -----------------------------------------------------------]]
 function Alias( From, To )
 
 	Aliases[ From ] = To
-
+	
 end
 
+
 --[[---------------------------------------------------------
-	Name: GetMember
+   Name: GetMember
 -----------------------------------------------------------]]
 function GetMember( entity_name, membername )
 
 	if ( !entity_name ) then return end
 
-	local ent = SEntList[ entity_name ]
+	local ent = SEntList[ entity_name ];
 
 	if ( !ent ) then return end
 
@@ -261,5 +289,5 @@ function GetMember( entity_name, membername )
 	if ( entity_name == ent.Base ) then return end
 
 	return GetMember( ent.Base, membername )
-
+	
 end
